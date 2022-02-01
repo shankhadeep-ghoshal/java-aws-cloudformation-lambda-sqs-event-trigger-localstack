@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Local deployment stack
+
+Resources:
+  SqsQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      DelaySeconds: 0
+      VisibilityTimeout: 120
+      FifoQueue: true
+
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: build/libs
+      Handler: com.shankhadeepghoshal.awsdemo.LambdaHandler
+      Runtime: java11
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Resource: !GetAtt SqsQueue.Arn
+            Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:ChangeMessageVisibility
+      Timeout: 60
+      MemorySize: 1024
+
+  LambdaFunctionEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      Enabled: true
+      EventSourceArn: !GetAtt SqsQueue.Arn
+      FunctionName: !GetAtt LambdaFunction.Arn

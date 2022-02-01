@@ -1,0 +1,104 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.avast.gradle:gradle-docker-compose-plugin:0.14.12")
+    }
+}
+
+plugins {
+    id 'java'
+    id 'application'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'idea'
+    id 'com.diffplug.spotless' version '5.17.0'
+}
+
+apply plugin: 'docker-compose'
+
+group 'com.shankhadeepghoshal.awsdemo'
+version '1.0'
+sourceCompatibility = '11'
+
+repositories {
+    mavenCentral()
+}
+
+idea {
+    module {
+        downloadJavadoc = true
+        downloadSources = true
+    }
+}
+
+ext {
+    awsSdkBomVersion = '2.17.121'
+    lombokVersion = '1.18.22'
+    jacksonVersion = '2.13.1'
+    lambdaJavaCoreVersion = '1.2.1'
+    lambdaJavaEventsVersion = '3.11.0'
+    lambdaLog4J2Version = '1.5.1'
+}
+
+dependencies {
+    implementation("org.projectlombok:lombok:${lombokVersion}")
+    annotationProcessor("org.projectlombok:lombok:${lombokVersion}")
+
+    implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}",
+            "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}",
+            "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+
+    implementation platform("software.amazon.awssdk:bom:${awsSdkBomVersion}")
+    implementation("software.amazon.awssdk:sqs",
+            "software.amazon.awssdk:lambda",
+            "com.amazonaws:aws-lambda-java-core:${lambdaJavaCoreVersion}",
+            "com.amazonaws:aws-lambda-java-events:${lambdaJavaEventsVersion}",
+            "com.amazonaws:aws-lambda-java-log4j2:${lambdaLog4J2Version}")
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+dependencyManagement {
+    resolutionStrategy {
+        cacheDynamicVersionsFor 0, 'seconds'
+    }
+}
+
+spotless {
+    java {
+        importOrder()
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+        googleJavaFormat('1.11.0')
+                .reflowLongStrings(true)
+                .groupArtifact('com.google.googlejavaformat:google-java-format')
+    }
+}
+
+compileJava.dependsOn spotlessJavaApply
+
+dockerCompose {
+    useComposeFiles = ["${rootDir}/docker-compose.yml"]
+}
+
+task runDockerCommands() {
+    group("application")
+    def currentOs = System.getProperty("os.name").toLowerCase(Locale.ENGLISH)
+    String[] commandTool
+    if (currentOs.containsIgnoreCase("windows")) commandTool = ['cmd', '/c']
+    else commandTool = ['sh', '-c']
+    def command1 = (commandTool + 'java --version').join(" ").execute().text.trim()
+    def command2 = (commandTool + 'javac --version').join(" ").execute().text.trim()
+    def pathFinder = (commandTool + (currentOs.containsIgnoreCase("windows") ? 'echo %cd%' : 'pmd'))
+    def command3 = pathFinder.join(" ").execute().text.trim()
+    println(command1)
+    println(command2)
+    println(command3)
+}
